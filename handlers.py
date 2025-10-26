@@ -1,4 +1,4 @@
-from db import pets
+from db import get_pet, update_pet, create_pet
 
 from aiogram import Dispatcher, types, F
 from aiogram.filters import Command
@@ -23,21 +23,15 @@ async def register_handlers(dp: Dispatcher): #картотека которая 
 
 async def start_handler(message: types.Message): # функция отвечающая за команду: start
     user_id = message.from_user.id # Получаем id пользователя
-
+    pet = await get_pet(user_id)
 # Бот - питомцы
-    if user_id not in pets:
-        new_pet = {
-            "name": "Baks😜",
-            "hunger": 50, # параметр голод
-            "energy": 50, # параметр энергия
-            "happiness": 50 # параметр счастья
-
-        }
-        pets[user_id] = new_pet # Если новый пользователь ещё не заходил мы создаём ему нового питомца
-
+    if not pet:
+        await create_pet(user_id, "Baks😜")
+        pet = await get_pet(user_id)
+        
     await message.answer(
         f"Привет, {message.from_user.first_name}!\n" # Обращаемся к пользователю по имени
-        f"Познакомься со своим питомцем: {pets[user_id]["name"]}!\n"
+        f"Познакомься со своим питомцем: {pet["name"]}!\n"
         f"Позаботься о нём!",
         reply_markup=main_kb
     )
@@ -45,11 +39,15 @@ async def start_handler(message: types.Message): # функция отвечаю
 
 async def feed_pet(message: types.Message):
     user_id = message.from_user.id
-    if user_id not in pets:
+    pet = await get_pet(user_id)
+    if not pet:
         await message.answer("Сначала запусти бота с помощью команды /start")
         return
-    pet = pets[user_id]
-    await message.answer(f"Чем вы хотите покрмить {pet['name']}?", reply_markup=food_kb)
+    
+    await message.answer(
+        f"Чем вы хотите покрмить {pet['name']}?", 
+        reply_markup=food_kb
+        )
 
     
     # pet["hunger"] = min(pet["hunger"] + 10, 100) # Функция минимума
@@ -59,21 +57,30 @@ async def feed_pet(message: types.Message):
 
 async def play_pet(message: types.Message):
     user_id = message.from_user.id
-    if user_id not in pets:
+    pet = await get_pet(user_id)
+    if not pet:
         await message.answer("Сначала запусти бота с помощью команды /start")
-        return
-    pet = pets[user_id]
+        return   
     pet["happiness"] = min(pet["happiness"] + 10, 100) # Функция минимума
     pet["energy"] = max(pet["energy"] - 15, 0)
+
+    await update_pet(
+        user_id=user_id,
+        name=pet["name"],
+        hunger=pet["hunger"],
+        happiness=pet["happiness"],
+        energy=pet["energy"]
+    )
     await message.answer(f"{pet['name']} Весело поиграл!")
 
 
 async def status_pet(message: types.Message):
     user_id = message.from_user.id
-    if user_id not in pets:
+    pet = await get_pet(user_id)
+    if not pet:
         await message.answer("Сначала запусти бота с помощью команды /start")
         return
-    pet = pets[user_id]
+    
     hun = pet['hunger']
     en = pet['energy']
     hap = pet['happiness']
@@ -90,11 +97,21 @@ async def status_pet(message: types.Message):
 
 async def food_callback_handler(callback: types.CallbackQuery): # Запрос через кнопки логика обработки этих кнопок
     user_id = callback.from_user.id
-    if user_id not in pets:
-        await callback.message.edit_text("Сначала запусти бота с помощью команды /start")# Редактируем наше сообщение
+    pet = await get_pet(user_id)
+    if not pet:
+        await callback.message.edit_text("Сначала запусти бота с помощью команды /start")
         return
+    # await update_pet(
+    #     user_id=user_id,
+    #     name=pet["name"],
+    #     hunger=pet["hunger"],
+    #     happiness=pet["happiness"],
+    #     energy=pet["energy"]
+    # )
+    # await callback.message.edit_text("Сначала запусти бота с помощью команды /start")# Редактируем наше сообщение
+    # return
     
-    pet = pets[user_id]
+    # pet = pets[user_id]
     food = callback.data
     message = "" # Где будем хранить сообщения для ответа пользователю
     h = pet["hunger"]
@@ -113,6 +130,13 @@ async def food_callback_handler(callback: types.CallbackQuery): # Запрос �
 
     pet["hunger"] = min(100, h)
 
+    await update_pet(
+        user_id=user_id,
+        name=pet["name"],
+        hunger=pet["hunger"],
+        happiness=pet["happiness"],
+        energy=pet["energy"]
+    )
     # Для перезаписи нашего сообщения
     await callback.message.edit_text(message)
     await callback.answer(
