@@ -1,89 +1,406 @@
-from aiogram import Router, F
-from aiogram.types import Message
-from keyboards import main_keyboard, feed_keyboard
-from db import pets, init_pet
+import asyncio
+import logging
+from aiogram import F, Router
+from aiogram.types import Message, CallbackQuery
+from aiogram.filters import Command
+from keyboards import main_keyboard, game_keyboard
+from db import init_pet, pets
 
 router = Router()
+logging.basicConfig(level=logging.INFO)
 
-@router.message(F.text == "/start")
+@router.message(Command("start"))
 async def start_handler(message: Message):
     user_id = message.from_user.id
     init_pet(user_id)
-    await message.reply("Привет! Я твой виртуальный питомец. Выбери действие:", reply_markup=main_keyboard)
+    await message.answer("Привет! Это твой виртуальный питомец. Выбери действие:", reply_markup=main_keyboard)
 
 @router.message(F.text == "Статус")
 async def status_handler(message: Message):
     user_id = message.from_user.id
-    init_pet(user_id)
     data = pets[user_id]
     hunger = data['hunger']
     energy = data['energy']
     health = data['health']
-    await message.reply(f"Статус: Голод {hunger}, Энергия {energy}, Здоровье {health}", reply_markup=main_keyboard)
+    await message.reply(
+        f"Статус: Голод {hunger}, Энергия {energy}, Здоровье {health}\n\n"
+        f"Игр сыграно: {data['games_played']}\n"
+        f"- Теннис: {data['tennis_games']}\n"
+        f"- Пазлы: {data['puzzle_games']}\n"
+        f"- Цель: {data['target_games']}", 
+        reply_markup=main_keyboard
+    )
 
-@router.message(F.text == "Кормить")
-async def feed_handler(message: Message):
-    await message.reply("Выбери еду:", reply_markup=feed_keyboard)
-
-@router.message(F.text == "Курица")
+# Обработчики кормления, воды, сна, лечения (без изменений)
+@router.message(F.text == "🍗 Курица")
 async def chicken_handler(message: Message):
     user_id = message.from_user.id
-    init_pet(user_id)
     data = pets[user_id]
     data['hunger'] = min(100, data['hunger'] + 20)
-    data['actions']['chicken'] += 1  # Увеличиваем счётчик
-    await message.reply("Ты покормил питомца курицей! Голод увеличен.", reply_markup=main_keyboard)
+    data['actions']['chicken'] += 1
+    await message.reply("Питомец поел курицу! 😋", reply_markup=main_keyboard)
 
-@router.message(F.text == "Мясо")
+@router.message(F.text == "🥩 Мясо")
 async def meat_handler(message: Message):
     user_id = message.from_user.id
-    init_pet(user_id)
     data = pets[user_id]
     data['hunger'] = min(100, data['hunger'] + 30)
-    data['actions']['meat'] += 1  # Увеличиваем счётчик
-    await message.reply("Ты покормил питомца мясом! Голод увеличен.", reply_markup=main_keyboard)
+    data['actions']['meat'] += 1
+    await message.reply("Питомец поел мясо! 🥩", reply_markup=main_keyboard)
 
-@router.message(F.text == "Вода")
+@router.message(F.text == "💧 Вода")
 async def water_handler(message: Message):
     user_id = message.from_user.id
-    init_pet(user_id)
     data = pets[user_id]
-    data['hunger'] = min(100, data['hunger'] + 10)
-    data['actions']['water'] += 1  # Увеличиваем счётчик
-    await message.reply("Ты напоил питомца водой! Голод увеличен.", reply_markup=main_keyboard)
+    data['hunger'] = min(100, data['hunger'] + 10)  # Вода слегка утоляет голод
+    data['actions']['water'] += 1
+    await message.reply("Питомец попил воды! 💧", reply_markup=main_keyboard)
 
-@router.message(F.text == "Сон")
+@router.message(F.text == "😴 Сон")
 async def sleep_handler(message: Message):
     user_id = message.from_user.id
-    init_pet(user_id)
     data = pets[user_id]
     data['energy'] = min(100, data['energy'] + 50)
-    data['actions']['sleep'] += 1  # Увеличиваем счётчик
-    await message.reply("Питомец поспал! Энергия восстановлена.", reply_markup=main_keyboard)
+    data['health'] = min(100, data['health'] + 10)
+    data['actions']['sleep'] += 1
+    await message.reply("Питомец поспал! 😴", reply_markup=main_keyboard)
 
-@router.message(F.text == "Лечение")
+@router.message(F.text == "🩹 Лечение")
 async def heal_handler(message: Message):
     user_id = message.from_user.id
-    init_pet(user_id)
     data = pets[user_id]
     data['health'] = min(100, data['health'] + 40)
-    data['actions']['heal'] += 1  # Увеличиваем счётчик
-    await message.reply("Питомец вылечился! Здоровье восстановлено.", reply_markup=main_keyboard)
+    data['actions']['heal'] += 1
+    await message.reply("Питомец вылечился! 🩹", reply_markup=main_keyboard)
 
-@router.message(F.text == "Top")
-async def top_handler(message: Message):
-    user_id = message.from_user.id
-    init_pet(user_id)
-    actions = pets[user_id]['actions']
-    top_text = f"Топ действий:\nКурица - {actions['chicken']} раз\nМясо - {actions['meat']} раза\nВода - {actions['water']} раза\nСон - {actions['sleep']} раза\nЛечение - {actions['heal']} раза"
-    await message.reply(top_text, reply_markup=main_keyboard)
+@router.message(F.text == "Играть")
+async def play_handler(message: Message):
+    await message.reply("Выбери игру для питомца:", reply_markup=game_keyboard)
 
-@router.message(F.text == "Назад")
-async def back_handler(message: Message):
-    await message.reply("Выбери действие:", reply_markup=main_keyboard)
+# Обработчики для Inline-кнопок игр (CallbackQuery)
+@router.callback_query(F.data == "tennis")
+async def tennis_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    data = pets[user_id]
+    data['games_played'] += 1
+    data['tennis_games'] += 1
+    data['energy'] = max(0, data['energy'] - 10)  # Тратит энергию
+    data['hunger'] = max(0, data['hunger'] - 5)   # Немного голода
+    data['health'] = min(100, data['health'] + 5) # Развлечение лечит
+    await callback.answer()  # Закрывает индикатор загрузки
+    await callback.message.answer("Питомец поиграл в теннис! 🎾", reply_markup=main_keyboard)
+
+@router.callback_query(F.data == "puzzle")
+async def puzzle_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    data = pets[user_id]
+    data['games_played'] += 1
+    data['puzzle_games'] += 1
+    data['energy'] = max(0, data['energy'] - 10)
+    data['hunger'] = max(0, data['hunger'] - 5)
+    data['health'] = min(100, data['health'] + 5)
+    await callback.answer()
+    await callback.message.answer("Питомец собрал пазл! 🧩", reply_markup=main_keyboard)
+
+@router.callback_query(F.data == "target")
+async def target_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    data = pets[user_id]
+    data['games_played'] += 1
+    data['target_games'] += 1
+    data['energy'] = max(0, data['energy'] - 10)
+    data['hunger'] = max(0, data['hunger'] - 5)
+    data['health'] = min(100, data['health'] + 5)
+    await callback.answer()
+    await callback.message.answer("Питомец попал в цель! 🎯", reply_markup=main_keyboard)
+
+# Обработчик для кнопки "Назад" (Inline)
+@router.callback_query(F.data == "back")
+async def back_handler(callback: CallbackQuery):
+    await callback.answer("Вернулись в главное меню")
+    await callback.message.answer("Главное меню:", reply_markup=main_keyboard)
 
 
 
+
+
+
+# import asyncio
+# import logging
+# from aiogram import F, Router
+# from aiogram.types import Message, CallbackQuery
+# from aiogram.filters import Command
+# from keyboards import main_keyboard, game_keyboard
+# from db import init_pet, pets
+
+# router = Router()
+# logging.basicConfig(level=logging.INFO)
+
+# @router.message(Command("start"))
+# async def start_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     await message.answer("Привет! Это твой виртуальный питомец. Выбери действие:", reply_markup=main_keyboard)
+
+# @router.message(F.text == "Статус")
+# async def status_handler(message: Message):
+#     user_id = message.from_user.id
+#     data = pets[user_id]
+#     hunger = data['hunger']
+#     energy = data['energy']
+#     health = data['health']
+#     await message.reply(
+#         f"Статус: Голод {hunger}, Энергия {energy}, Здоровье {health}\n\n"
+#         f"Игр сыграно: {data['games_played']}\n"
+#         f"- Теннис: {data['tennis_games']}\n"
+#         f"- Пазлы: {data['puzzle_games']}\n"
+#         f"- Цель: {data['target_games']}", 
+#         reply_markup=main_keyboard
+#     )
+
+# # Обработчики кормления, воды, сна, лечения (без изменений)
+# @router.message(F.text == "🍗 Курица")
+# async def chicken_handler(message: Message):
+#     user_id = message.from_user.id
+#     data = pets[user_id]
+#     data['hunger'] = min(100, data['hunger'] + 20)
+#     data['actions']['chicken'] += 1
+#     await message.reply("Питомец поел курицу! 😋", reply_markup=main_keyboard)
+
+# @router.message(F.text == "🥩 Мясо")
+# async def meat_handler(message: Message):
+#     user_id = message.from_user.id
+#     data = pets[user_id]
+#     data['hunger'] = min(100, data['hunger'] + 30)
+#     data['actions']['meat'] += 1
+#     await message.reply("Питомец поел мясо! 🥩", reply_markup=main_keyboard)
+
+# @router.message(F.text == "💧 Вода")
+# async def water_handler(message: Message):
+#     user_id = message.from_user.id
+#     data = pets[user_id]
+#     data['hunger'] = min(100, data['hunger'] + 10)  # Вода слегка утоляет голод
+#     data['actions']['water'] += 1
+#     await message.reply("Питомец попил воды! 💧", reply_markup=main_keyboard)
+
+# @router.message(F.text == "😴 Сон")
+# async def sleep_handler(message: Message):
+#     user_id = message.from_user.id
+#     data = pets[user_id]
+#     data['energy'] = min(100, data['energy'] + 50)
+#     data['health'] = min(100, data['health'] + 10)
+#     data['actions']['sleep'] += 1
+#     await message.reply("Питомец поспал! 😴", reply_markup=main_keyboard)
+
+# @router.message(F.text == "🩹 Лечение")
+# async def heal_handler(message: Message):
+#     user_id = message.from_user.id
+#     data = pets[user_id]
+#     data['health'] = min(100, data['health'] + 40)
+#     data['actions']['heal'] += 1
+#     await message.reply("Питомец вылечился! 🩹", reply_markup=main_keyboard)
+
+# @router.message(F.text == "Играть")
+# async def play_handler(message: Message):
+#     await message.reply("Выбери игру для питомца:", reply_markup=game_keyboard)
+
+# # Обработчики для Inline-кнопок игр (CallbackQuery)
+# @router.callback_query(F.data == "tennis")
+# async def tennis_handler(callback: CallbackQuery):
+#     user_id = callback.from_user.id
+#     data = pets[user_id]
+#     data['games_played'] += 1
+#     data['tennis_games'] += 1
+#     data['energy'] = max(0, data['energy'] - 10)  # Тратит энергию
+#     data['hunger'] = max(0, data['hunger'] - 5)   # Немного голода
+#     data['health'] = min(100, data['health'] + 5) # Развлечение лечит
+#     # await callback.message.edit_text("Питомец поиграл в теннис! 🎾\nВернемся в меню.", reply_markup=main_keyboard)
+#     await callback.answer()  # Закрывает индикатор загрузки
+#     await callback.message.answer("Питомец поиграл в теннис! 🎾", reply_markup=main_keyboard)
+
+# @router.callback_query(F.data == "puzzle")
+# async def puzzle_handler(callback: CallbackQuery):
+#     user_id = callback.from_user.id
+#     data = pets[user_id]
+#     data['games_played'] += 1
+#     data['puzzle_games'] += 1
+#     data['energy'] = max(0, data['energy'] - 10)
+#     data['hunger'] = max(0, data['hunger'] - 5)
+#     data['health'] = min(100, data['health'] + 5)
+#     # await callback.message.edit_text("Питомец собрал пазл! 🧩\nВернемся в меню.", reply_markup=main_keyboard)
+#     await callback.answer()
+#     await callback.message.answer("Питомец собрал пазл! 🧩", reply_markup=main_keyboard)
+
+# @router.callback_query(F.data == "target")
+# async def target_handler(callback: CallbackQuery):
+#     user_id = callback.from_user.id
+#     data = pets[user_id]
+#     data['games_played'] += 1
+#     data['target_games'] += 1
+#     data['energy'] = max(0, data['energy'] - 10)
+#     data['hunger'] = max(0, data['hunger'] - 5)
+#     data['health'] = min(100, data['health'] + 5)
+#     # await callback.message.edit_text("Питомец попал в цель! 🎯\nВернемся в меню.", reply_markup=main_keyboard)
+#     await callback.answer()
+#     await callback.message.answer("Питомец попал в цель! 🎯", reply_markup=main_keyboard)
+
+# # Обработчик для кнопки "Назад" (Inline)
+# @router.callback_query(F.data == "back")
+# async def back_handler(callback: CallbackQuery):
+#     # await callback.message.edit_reply_markup(main_keyboard)
+#     await callback.answer("Вернулись в главное меню")
+#     await callback.message.answer("Главное меню:", reply_markup=main_keyboard)
+
+
+
+
+
+
+
+# from aiogram import Router, F
+# from aiogram.types import Message
+# from keyboards import main_keyboard, feed_keyboard, game_keyboard  # Добавили game_keyboard
+# from db import pets, init_pet
+
+# router = Router()
+
+# @router.message(F.text == "/start")
+# async def start_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     await message.reply("Привет! Я твой виртуальный питомец. Выбери действие:", reply_markup=main_keyboard)
+
+# @router.message(F.text == "Статус")
+# async def status_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     data = pets[user_id]
+#     hunger = data['hunger']
+#     energy = data['energy']
+#     health = data['health']
+#     await message.reply(f"Статус: Голод {hunger}, Энергия {energy}, Здоровье {health}\n\nИгр сыграно: {data['games_played']}\n- Теннис: {data['tennis_games']}\n- Пазлы: {data['puzzle_games']}\n- Цель: {data['target_games']}", reply_markup=main_keyboard)
+
+    
+
+# @router.message(F.text == "Кормить")
+# async def feed_handler(message: Message):
+#     await message.reply("Выбери еду:", reply_markup=feed_keyboard)
+
+# @router.message(F.text == "Курица")
+# async def chicken_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     data = pets[user_id]
+#     data['hunger'] = min(100, data['hunger'] + 20)
+#     data['actions']['chicken'] += 1  # Увеличиваем счётчик
+#     await message.reply("Ты покормил питомца курицей! Голод увеличен.", reply_markup=main_keyboard)
+
+# @router.message(F.text == "Мясо")
+# async def meat_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     data = pets[user_id]
+#     data['hunger'] = min(100, data['hunger'] + 30)
+#     data['actions']['meat'] += 1  # Увеличиваем счётчик
+#     await message.reply("Ты покормил питомца мясом! Голод увеличен.", reply_markup=main_keyboard)
+
+# @router.message(F.text == "Вода")
+# async def water_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     data = pets[user_id]
+#     data['hunger'] = min(100, data['hunger'] + 10)
+#     data['actions']['water'] += 1  # Увеличиваем счётчик
+#     await message.reply("Ты напоил питомца водой! Голод увеличен.", reply_markup=main_keyboard)
+
+# @router.message(F.text == "Сон")
+# async def sleep_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     data = pets[user_id]
+#     data['energy'] = min(100, data['energy'] + 50)
+#     data['actions']['sleep'] += 1  # Увеличиваем счётчик
+#     await message.reply("Питомец поспал! Энергия восстановлена.", reply_markup=main_keyboard)
+
+# @router.message(F.text == "Лечение")
+# async def heal_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     data = pets[user_id]
+#     data['health'] = min(100, data['health'] + 40)
+#     data['actions']['heal'] += 1  # Увеличиваем счётчик
+#     await message.reply("Питомец вылечился! Здоровье восстановлено.", reply_markup=main_keyboard)
+
+# @router.message(F.text == "Top")
+# async def top_handler(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     actions = pets[user_id]['actions']
+#     top_text = f"Топ действий:\nКурица - {actions['chicken']} раз\nМясо - {actions['meat']} раза\nВода - {actions['water']} раза\nСон - {actions['sleep']} раза\nЛечение - {actions['heal']} раза"
+#     await message.reply(top_text, reply_markup=main_keyboard)
+
+
+# @router.message(F.text == "Играть")
+# async def play_handler(message: Message):
+#     await message.reply("Выберите игру с питомцем:", reply_markup=game_keyboard)
+
+# @router.message(F.text == "Назад")
+# async def back_handler(message: Message):
+#     await message.reply("Выбери действие:", reply_markup=main_keyboard)
+
+
+# # Обработчик для игры в теннис (🎾)
+# @router.message(F.text == '🎾 Теннис')
+# async def play_tennis(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)  # Инициализируем, если нужно
+#     data = pets[user_id]
+    
+#     # Игра: повышаем энергию, чуть уменьшаем голод
+#     data['energy'] = min(100, data['energy'] + 20)
+#     data['hunger'] = max(0, data['hunger'] - 5)
+#     data['games_played'] += 1
+#     data['tennis_games'] += 1
+    
+#     await message.reply(f"Вы поиграли в теннис! Энергия +20, голод -5.\nВсего игр: {data['games_played']}", reply_markup=game_keyboard)
+
+# # Обработчик для игры в пазлы (🧩)
+# @router.message(F.text == '🧩 Пазлы')
+# async def play_puzzle(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     data = pets[user_id]
+    
+#     # Игра: повышаем здоровье, чуть уменьшаем энергию
+#     data['health'] = min(100, data['health'] + 15)
+#     data['energy'] = max(0, data['energy'] - 5)
+#     data['games_played'] += 1
+#     data['puzzle_games'] += 1
+    
+#     await message.reply(f"Вы собрали пазл! Здоровье +15, энергия -5.\nВсего игр: {data['games_played']}", reply_markup=game_keyboard)
+
+# # Обработчик для игры в цель (🎯)
+# @router.message(F.text == '🎯 Цель')
+# async def play_target(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+#     data = pets[user_id]
+    
+#     # Игра: повышаем голод (как будто еда в награду), чуть уменьшаем здоровье
+#     data['hunger'] = min(100, data['hunger'] + 10)
+#     data['health'] = max(0, data['health'] - 5)
+#     data['games_played'] += 1
+#     data['target_games'] += 1
+    
+#     await message.reply(f"Вы попали в цель! Голод +10, здоровье -5.\nВсего игр: {data['games_played']}", reply_markup=game_keyboard)
+
+# # Обработчик для кнопки "Назад" в меню игр (совместим с твоим "Назад")
+# @router.message(F.text == 'Назад')
+# async def back_from_games(message: Message):
+#     user_id = message.from_user.id
+#     init_pet(user_id)
+    
+#     await message.reply("Возвращаемся в главное меню!", reply_markup=main_keyboard)
 
 
 

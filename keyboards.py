@@ -1,22 +1,60 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="Статус"), KeyboardButton(text="Кормить")],
-        [KeyboardButton(text="Сон"), KeyboardButton(text="Лечение")],
-        [KeyboardButton(text="Top")]  # Новая кнопка для статистики
+        [KeyboardButton(text="🍗 Курица"), KeyboardButton(text="🥩 Мясо")],
+        [KeyboardButton(text="💧 Вода"), KeyboardButton(text="😴 Сон")],
+        [KeyboardButton(text="🩹 Лечение"), KeyboardButton(text="Статус")],
+        [KeyboardButton(text="Играть")]
     ],
     resize_keyboard=True
 )
 
-feed_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="Курица"), KeyboardButton(text="Мясо")],
-        [KeyboardButton(text="Вода"), KeyboardButton(text="Назад")]
-    ],
-    resize_keyboard=True
-)
+game_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="🎾 Теннис", callback_data="tennis")],
+    [InlineKeyboardButton(text="🧩 Пазлы", callback_data="puzzle")],
+    [InlineKeyboardButton(text="🎯 Цель", callback_data="target")],
+    [InlineKeyboardButton(text="Назад", callback_data="back")]
+])
 
+
+
+
+
+
+
+
+# from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+# main_keyboard = ReplyKeyboardMarkup(
+#     keyboard=[
+#         [KeyboardButton(text="Статус"), KeyboardButton(text="Кормить")],
+#         [KeyboardButton(text="Сон"), KeyboardButton(text="Лечение")],
+#         [KeyboardButton(text="Играть"), KeyboardButton(text="Top")]  # Добавили "Играть"
+#     ],
+#     resize_keyboard=True
+# )
+
+# feed_keyboard = ReplyKeyboardMarkup(
+#     keyboard=[
+#         [KeyboardButton(text="Курица"), KeyboardButton(text="Мясо")],
+#         [KeyboardButton(text="Вода"), KeyboardButton(text="Назад")]
+#     ],
+#     resize_keyboard=True
+# )
+
+# from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+
+
+# # Новая клавиатура для выбора игры
+# game_keyboard = ReplyKeyboardMarkup(
+#     keyboard=[
+#         [KeyboardButton(text="🎾 Поиграть в мяч"), KeyboardButton(text="🧩 Пазл")],
+#         [KeyboardButton(text="🎯 Тренировка"), KeyboardButton(text="🔄 Назад")]
+#     ],
+#     resize_keyboard=True
+# )
 
 
 

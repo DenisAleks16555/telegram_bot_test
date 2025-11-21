@@ -1,4 +1,3 @@
-
 import asyncio
 from collections import defaultdict
 
@@ -11,8 +10,13 @@ async def background_task():
             # Уменьшаем stats
             data['hunger'] = max(0, data.get('hunger', 100) - 10)
             data['energy'] = max(0, data.get('energy', 100) - 10)
-            data['health'] = max(0, data.get('health', 100) - 5)
+            # Изменения для health (расширение из прошлого задания)
+            health_change = 5  # Обычное уменьшение
+            if data.get('energy', 100) < 50:  # Если энергия низкая
+                health_change += 5  # Дополнительное уменьшение
+            data['health'] = max(0, data.get('health', 100) - health_change)
             # Счётчики действий не уменьшаем — они накапливаются
+
 
 def init_pet(user_id):
     if user_id not in pets:
@@ -20,7 +24,11 @@ def init_pet(user_id):
             'hunger': 100,
             'energy': 100,
             'health': 100,
-            'actions': {'chicken': 0, 'meat': 0, 'water': 0, 'sleep': 0, 'heal': 0}  # Счётчики нажатий
+            'actions': {'chicken': 0, 'meat': 0, 'water': 0, 'sleep': 0, 'heal': 0},  # Счётчики нажатий
+            'games_played': 0,  # Общий счётчик игр (новый)
+            'tennis_games': 0,  # Счётчик для тенниса (новый)
+            'puzzle_games': 0,  # Счётчик для пазлов (новый)
+            'target_games': 0    # Счётчик для цели (новый)
         }
 
 # import asyncio
