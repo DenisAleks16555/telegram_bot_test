@@ -1,161 +1,44 @@
 import asyncio
 import logging
-from dotenv import load_dotenv
-from aiogram import Bot, Dispatcher
-from handlers import router
-from db import init_db, decrease_all_stats
 import os
+from dotenv import load_dotenv  # Если установили python-dotenv
+from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
+from handlers import router
+from db import background_task, pets
 
+# Загрузка .env
 load_dotenv()
+BOT_TOKEN = os.getenv('TG_API_KEY')  # Или замените на BOT_TOKEN = 'ваш_реальный_токен'
+
+# Логирование
 logging.basicConfig(level=logging.INFO)
 
+# Бот и диспетчер
+bot = Bot(token=BOT_TOKEN)
+storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
+
+# Регистрация роутера
+dp.include_router(router)
+
 async def main():
-    bot_token = os.getenv('TG_API_KEY')
-    if not bot_token:
-        logging.error("TG_API_KEY not found! Создай .env с TG_API_KEY=твой_токен")
-        raise ValueError("TG_API_KEY not found!")
+    # Фоновая задача
+    task = asyncio.create_task(background_task())
+    print("Фоновые задачи запущены")
     
-    logging.info("Инициализируем DB...")
-    await init_db()
-    logging.info("DB готова.")
-    
-    bot = Bot(token=bot_token)
-    dp = Dispatcher()
-    dp.include_router(router)
-    
-    logging.info("Бот запущен! Polling начат. Тестируй /start в Telegram.")
-    
-    # Background-task: уменьшение stats каждые 60 сек
-    async def background_task_loop():
-        while True:
-            try:
-                await decrease_all_stats()
-                logging.info("Stats уменьшены для всех питомцев.")
-            except Exception as e:
-                logging.error(f"Ошибка в background-task: {e}")
-            await asyncio.sleep(60)
-    
-    asyncio.create_task(background_task_loop())
-    
+    # Polling
     await dp.start_polling(bot)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("Бот остановлен.")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# import asyncio
-# import logging  # Новое
-# from dotenv import load_dotenv
-# from aiogram import Bot, Dispatcher
-# from handlers import router
-# from db import init_db, decrease_all_stats
-# import os
-
-# # Загружаем переменные окружения
-# load_dotenv()
-
-# # Настраиваем логирование (чтобы видеть вывод в терминале)
-# logging.basicConfig(level=logging.INFO)
-
-# async def main():
-#     bot_token = os.getenv('TG_API_KEY')
-#     if not bot_token:
-#         logging.error("TG_API_KEY not found in environment variables. Create a .env file with TG_API_KEY=your_bot_token")
-#         raise ValueError("TG_API_KEY not found in environment variables. Create a .env file with TG_API_KEY=your_bot_token")
-    
-#     logging.info("Инициализируем базу данных...")
-#     await init_db()  # Теперь async
-    
-#     bot = Bot(token=bot_token)
-#     dp = Dispatcher()
-#     dp.include_router(router)
-    
-#     logging.info("Бот запущен и готов к работе!")
-    
-#     # Фоновая задача для уменьшения stats каждые 60 секунд
-#     async def background_task_loop():
-#         while True:
-#             await decrease_all_stats()  # Теперь async
-#             await asyncio.sleep(60)
-    
-#     asyncio.create_task(background_task_loop())
-    
-#     await dp.start_polling(bot)
-
-# if __name__ == "__main__":
-#     asyncio.run(main())
-
-
-
-
-
-
-# import os
-# from dotenv import load_dotenv  # Новое
-# load_dotenv()  # Новое
-# import asyncio
-# from aiogram import Bot, Dispatcher  # type: ignore
-# from handlers import router  # type: ignore
-# from db import init_db, decrease_all_stats  # Импорт функций из db.py
-
-# async def main():
-#     bot_token = os.getenv('TG_API_KEY')
-#     if not bot_token:
-#         raise ValueError("TG_API_KEY not found in environment variables. Create a .env file with TG_API_KEY=your_bot_token")
-    
-#     bot = Bot(token=bot_token)
-#     dp = Dispatcher()
-#     dp.include_router(router)
-    
-#     init_db()  # Инициализация БД (синхронная)
-    
-#     # Фоновая задача для уменьшения stats каждые 60 секунд
-#     async def background_task_loop():
-#         while True:
-#             await decrease_all_stats()
-#             await asyncio.sleep(60)
-    
-#     asyncio.create_task(background_task_loop())
-    
-#     await dp.start_polling(bot)
-
-# if __name__ == "__main__":
-#     asyncio.run(main())
-
-
-
-# # async def main():
-# #     # Фоновая задача
-# #     task = asyncio.create_task(background_task())
-# #     print("Фоновые задачи запущены")
-    
-#     # Polling
-#     await dp.start_polling(bot)
-
-# if __name__ == '__main__':
-#     try:
-#         asyncio.run(main())
-#     except KeyboardInterrupt:
-#         print("Бот остановлен")
-#     finally:
-#         for user_id in list(pets.keys()):
-#             del pets[user_id]
-#         print("Данные очищены")
+        print("Бот остановлен")
+    finally:
+        for user_id in list(pets.keys()):
+            del pets[user_id]
+        print("Данные очищены")
 
 
 #TG_API_KEY=8476904414:AAGXciy4hJ_kekJm22Go9D6V18Te87fLYqQ
